@@ -210,20 +210,18 @@ const TEST_PROVIDERS: ReadonlyArray<ServerProvider> = [
   },
 ];
 
-const CODEX_INSTANCE_ID = ProviderInstanceId.make("codex");
-const CLAUDE_INSTANCE_ID = ProviderInstanceId.make("claudeAgent");
-const OPENCODE_INSTANCE_ID = ProviderInstanceId.make("opencode");
+const PI_INSTANCE_ID = ProviderInstanceId.make("pi");
 
-function buildCodexProvider(models: ServerProvider["models"]): ServerProvider {
+function buildPiProvider(models: ServerProvider["models"]): ServerProvider {
   return {
-    driver: ProviderDriverKind.make("codex"),
-    instanceId: ProviderInstanceId.make("codex"),
-    displayName: "Codex",
+    driver: ProviderDriverKind.make("pi"),
+    instanceId: ProviderInstanceId.make("pi"),
+    displayName: "Pi",
     enabled: true,
     installed: true,
-    version: "0.116.0",
+    version: null,
     status: "ready",
-    auth: { status: "authenticated" },
+    auth: { status: "unknown" },
     checkedAt: new Date().toISOString(),
     models,
     slashCommands: [],
@@ -231,21 +229,11 @@ function buildCodexProvider(models: ServerProvider["models"]): ServerProvider {
   };
 }
 
-function buildOpenCodeProvider(models: ServerProvider["models"]): ServerProvider {
-  return {
-    driver: ProviderDriverKind.make("opencode"),
-    instanceId: ProviderInstanceId.make("opencode"),
-    enabled: true,
-    installed: true,
-    version: "1.0.0",
-    status: "ready",
-    auth: { status: "authenticated" },
-    checkedAt: new Date().toISOString(),
-    models,
-    slashCommands: [],
-    skills: [],
-  };
-}
+// Aliases for backward compatibility in tests
+const CLAUDE_INSTANCE_ID = PI_INSTANCE_ID;
+const OPENCODE_INSTANCE_ID = PI_INSTANCE_ID;
+const buildCodexProvider = buildPiProvider;
+const buildOpenCodeProvider = buildPiProvider;
 
 async function mountPicker(props: {
   activeInstanceId?: ProviderInstanceId;
@@ -261,7 +249,7 @@ async function mountPicker(props: {
   const onInstanceModelChange = vi.fn();
   const providers = props.providers ?? TEST_PROVIDERS;
   const instanceEntries = sortProviderInstanceEntries(deriveProviderInstanceEntries(providers));
-  const activeInstanceId = props.activeInstanceId ?? CODEX_INSTANCE_ID;
+  const activeInstanceId = props.activeInstanceId ?? PI_INSTANCE_ID;
   const modelOptionsByInstance = getCustomModelOptionsByInstance(
     props.settings ?? DEFAULT_UNIFIED_SETTINGS,
     providers,

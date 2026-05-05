@@ -74,13 +74,13 @@ function createBaseServerConfig(): ServerConfig {
     issues: [],
     providers: [
       {
-        driver: ProviderDriverKind.make("codex"),
-        instanceId: ProviderInstanceId.make("codex"),
+        driver: ProviderDriverKind.make("pi"),
+        instanceId: ProviderInstanceId.make("pi"),
         enabled: true,
         installed: true,
-        version: "0.116.0",
+        version: null,
         status: "ready",
-        auth: { status: "authenticated" },
+        auth: { status: "unknown" },
         checkedAt: NOW_ISO,
         models: [],
         slashCommands: [],
@@ -99,30 +99,14 @@ function createBaseServerConfig(): ServerConfig {
       enableAssistantStreaming: false,
       defaultThreadEnvMode: "local" as const,
       textGenerationModelSelection: {
-        instanceId: ProviderInstanceId.make("codex"),
-        model: "gpt-5.4-mini",
+        instanceId: ProviderInstanceId.make("pi"),
+        model: "haiku",
       },
       providers: {
-        codex: {
+        pi: {
           enabled: true,
           binaryPath: "",
-          homePath: "",
-          shadowHomePath: "",
-          customModels: [],
-        },
-        claudeAgent: {
-          enabled: true,
-          binaryPath: "",
-          homePath: "",
-          customModels: [],
-          launchArgs: "",
-        },
-        cursor: { enabled: true, binaryPath: "", apiEndpoint: "", customModels: [] },
-        opencode: {
-          enabled: true,
-          binaryPath: "",
-          serverUrl: "",
-          serverPassword: "",
+          model: "",
           customModels: [],
         },
       },
@@ -139,8 +123,8 @@ function createMinimalSnapshot(): OrchestrationReadModel {
         title: "Project",
         workspaceRoot: "/repo/project",
         defaultModelSelection: {
-          instanceId: ProviderInstanceId.make("codex"),
-          model: "gpt-5",
+          instanceId: ProviderInstanceId.make("pi"),
+          model: "sonnet",
         },
         scripts: [],
         createdAt: NOW_ISO,
@@ -154,8 +138,8 @@ function createMinimalSnapshot(): OrchestrationReadModel {
         projectId: PROJECT_ID,
         title: "Test thread",
         modelSelection: {
-          instanceId: ProviderInstanceId.make("codex"),
-          model: "gpt-5",
+          instanceId: ProviderInstanceId.make("pi"),
+          model: "sonnet",
         },
         interactionMode: "default",
         runtimeMode: "full-access",
@@ -183,7 +167,7 @@ function createMinimalSnapshot(): OrchestrationReadModel {
         session: {
           threadId: THREAD_ID,
           status: "ready",
-          providerName: "codex",
+          providerName: "pi",
           runtimeMode: "full-access",
           activeTurnId: null,
           lastError: null,

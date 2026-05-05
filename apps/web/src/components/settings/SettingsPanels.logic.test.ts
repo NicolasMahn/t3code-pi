@@ -9,12 +9,12 @@ import { buildProviderInstanceUpdatePatch } from "./SettingsPanels.logic";
 
 describe("buildProviderInstanceUpdatePatch", () => {
   it("promotes an edited default provider into providerInstances and resets the legacy provider", () => {
-    const instanceId = ProviderInstanceId.make("codex");
+    const instanceId = ProviderInstanceId.make("pi");
     const nextInstance = {
-      driver: ProviderDriverKind.make("codex"),
+      driver: ProviderDriverKind.make("pi"),
       enabled: true,
       config: {
-        binaryPath: "/opt/t3/codex",
+        binaryPath: "/usr/local/bin/pi",
       },
     } satisfies ProviderInstanceConfig;
 
@@ -23,29 +23,30 @@ describe("buildProviderInstanceUpdatePatch", () => {
         ...DEFAULT_SERVER_SETTINGS,
         providers: {
           ...DEFAULT_SERVER_SETTINGS.providers,
-          codex: {
-            ...DEFAULT_SERVER_SETTINGS.providers.codex,
-            binaryPath: "/legacy/codex",
+          pi: {
+            ...DEFAULT_SERVER_SETTINGS.providers.pi,
+            binaryPath: "/legacy/pi",
           },
         },
       },
       instanceId,
       instance: nextInstance,
-      driver: ProviderDriverKind.make("codex"),
+      driver: ProviderDriverKind.make("pi"),
       isDefault: true,
     });
 
     expect(patch.providerInstances?.[instanceId]).toEqual(nextInstance);
-    expect(patch.providers?.codex).toEqual(DEFAULT_SERVER_SETTINGS.providers.codex);
+    expect(patch.providers?.pi).toEqual(DEFAULT_SERVER_SETTINGS.providers.pi);
   });
 
   it("updates custom instances without touching legacy provider settings", () => {
-    const instanceId = ProviderInstanceId.make("codex_personal");
+    const instanceId = ProviderInstanceId.make("pi_custom");
     const nextInstance = {
-      driver: ProviderDriverKind.make("codex"),
+      driver: ProviderDriverKind.make("pi"),
       enabled: true,
       config: {
-        homePath: "/Users/example/.codex-personal",
+        binaryPath: "/usr/local/bin/pi",
+        model: "anthropic/claude-sonnet-4-20250514",
       },
     } satisfies ProviderInstanceConfig;
 
@@ -53,7 +54,7 @@ describe("buildProviderInstanceUpdatePatch", () => {
       settings: DEFAULT_SERVER_SETTINGS,
       instanceId,
       instance: nextInstance,
-      driver: ProviderDriverKind.make("codex"),
+      driver: ProviderDriverKind.make("pi"),
       isDefault: false,
     });
 
