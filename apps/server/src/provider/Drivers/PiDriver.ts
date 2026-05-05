@@ -1,11 +1,3 @@
-/**
- * PiDriver — `ProviderDriver` for the Pi coding agent (RPC mode).
- *
- * Spawns `pi --mode rpc` per instance and translates Pi's JSON-RPC event
- * stream into t3code's `ProviderRuntimeEvent` model via `PiAdapter`.
- *
- * @module provider/Drivers/PiDriver
- */
 import {
   PiSettings,
   ProviderDriverKind,
@@ -25,7 +17,6 @@ import type { ProviderDriver, ProviderInstance } from "../ProviderDriver.ts";
 import type { ServerProviderDraft } from "../providerSnapshot.ts";
 import { mergeProviderInstanceEnvironment } from "../ProviderInstanceEnvironment.ts";
 import { defaultProviderContinuationIdentity } from "../ProviderDriver.ts";
-import { makePiRpcClient } from "../Layers/PiRpcClient.ts";
 
 const DRIVER_KIND = ProviderDriverKind.make("pi");
 const SNAPSHOT_REFRESH_INTERVAL = Duration.minutes(5);
@@ -71,127 +62,60 @@ function makePendingPiProvider(settings: PiSettings): ServerProviderDraft {
   };
 }
 
-// Fallback models used when Pi is not available to query
-const STATIC_PI_MODELS: ServerProviderModel[] = [
-  {
-    slug: "anthropic/claude-sonnet-4",
-    name: "Claude Sonnet 4",
-    subProvider: "anthropic",
-    isCustom: false,
-    capabilities: null,
-  },
-  {
-    slug: "anthropic/claude-haiku-4",
-    name: "Claude Haiku 4",
-    subProvider: "anthropic",
-    isCustom: false,
-    capabilities: null,
-  },
-  {
-    slug: "anthropic/claude-opus-4",
-    name: "Claude Opus 4",
-    subProvider: "anthropic",
-    isCustom: false,
-    capabilities: null,
-  },
-  {
-    slug: "openai/gpt-4o",
-    name: "GPT-4o",
-    subProvider: "openai",
-    isCustom: false,
-    capabilities: null,
-  },
-  {
-    slug: "openai/o3-mini",
-    name: "o3-mini",
-    subProvider: "openai",
-    isCustom: false,
-    capabilities: null,
-  },
-];
-
-/**
- * Probe Pi for its available models by spawning a temporary RPC process.
- */
-const probePiProvider = (binaryPath: string, processEnv?: NodeJS.ProcessEnv) =>
-  Effect.gen(function* () {
-    yield* Effect.sleep(Duration.millis(500));
-
-    const client = yield* makePiRpcClient({
-      binaryPath,
-      ...(processEnv ? { environment: processEnv } : {}),
-    });
-
-    yield* Effect.sleep(Duration.millis(500));
-
-    let response: { success: boolean; data?: unknown } | null = null;
-    try {
-      response = yield* client.sendCommand({ type: "get_available_models" }).pipe(
-        Effect.timeout(Duration.seconds(5)),
-      );
-    } catch {
-      response = null;
-    }
-
-    yield* client.close.pipe(Effect.ignore);
-
-    if (!response || !response.success || !response.data) {
-      return [];
-    }
-
-    const data = response.data as
-      | {
-          models?: Array<{
-            id: string;
-            name: string;
-            provider?: string;
-          }>;
-        }
-      | undefined;
-    if (!data?.models) return [];
-
-    return data.models.map(
-      (m): ServerProviderModel => ({
-        slug: m.id,
-        name: m.name,
-        ...(m.provider ? { subProvider: m.provider } : {}),
-        isCustom: false,
-        capabilities: null,
-      }),
-    );
-  });
-
 function checkPiProviderStatus(
   settings: PiSettings,
-  processEnv: NodeJS.ProcessEnv | undefined,
-): Effect.Effect<ServerProviderDraft, never, ChildProcessSpawner.ChildProcessSpawner> {
-  return Effect.gen(function* () {
-    const now = new Date().toISOString() as any;
+  _processEnv: NodeJS.ProcessEnv | undefined,
+): Effect.Effect<ServerProviderDraft, never> {
+  const now = new Date().toISOString() as any;
+  const models: ServerProviderModel[] = [
+    {
+      slug: "anthropic/claude-sonnet-4",
+      name: "Claude Sonnet 4",
+      subProvider: "anthropic",
+      isCustom: false,
+      capabilities: null,
+    },
+    {
+      slug: "anthropic/claude-haiku-4",
+      name: "Claude Haiku 4",
+      subProvider: "anthropic",
+      isCustom: false,
+      capabilities: null,
+    },
+    {
+      slug: "anthropic/claude-opus-4",
+      name: "Claude Opus 4",
+      subProvider: "anthropic",
+      isCustom: false,
+      capabilities: null,
+    },
+    {
+      slug: "openai/gpt-4o",
+      name: "GPT-4o",
+      subProvider: "openai",
+      isCustom: false,
+      capabilities: null,
+    },
+    {
+      slug: "openai/o3-mini",
+      name: "o3-mini",
+      subProvider: "openai",
+      isCustom: false,
+      capabilities: null,
+    },
+  ];
 
-    let models: ServerProviderModel[] = [];
-    if (settings.enabled) {
-      try {
-        models = yield* probePiProvider(settings.binaryPath, processEnv).pipe(
-          Effect.scoped,
-          Effect.timeout(Duration.seconds(8)),
-        );
-      } catch {
-        models = [];
-      }
-    }
-
-    return {
-      displayName: "Pi",
-      enabled: settings.enabled,
-      installed: true,
-      version: null,
-      status: settings.enabled ? ("ready" as const) : ("disabled" as const),
-      auth: { status: "unknown" as const },
-      checkedAt: now,
-      models: models.length > 0 ? models : STATIC_PI_MODELS,
-      slashCommands: [],
-      skills: [],
-    };
+  return Effect.succeed({
+    displayName: "Pi",
+    enabled: settings.enabled,
+    installed: true,
+    version: null,
+    status: settings.enabled ? ("ready" as const) : ("disabled" as const),
+    auth: { status: "unknown" as const },
+    checkedAt: now,
+    models,
+    slashCommands: [],
+    skills: [],
   });
 }
 
@@ -205,8 +129,8 @@ export const PiDriver: ProviderDriver<PiSettings, PiDriverEnv> = {
   defaultConfig: (): PiSettings => Schema.decodeSync(PiSettings)({}),
   create: ({ instanceId, displayName, accentColor, environment, enabled, config }) =>
     Effect.gen(function* () {
-      const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-      const eventLoggers = yield* ProviderEventLoggers;
+      const _spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+      const _eventLoggers = yield* ProviderEventLoggers;
       const processEnv = mergeProviderInstanceEnvironment(environment);
       const continuationIdentity = defaultProviderContinuationIdentity({
         driverKind: DRIVER_KIND,
@@ -229,11 +153,9 @@ export const PiDriver: ProviderDriver<PiSettings, PiDriverEnv> = {
         ...(effectiveConfig.model ? { model: effectiveConfig.model } : {}),
       });
 
-      // Build a managed snapshot. checkPiProviderStatus needs
-      // ChildProcessSpawner; we satisfy it here so the managed layer sees R=never.
+      // Build a managed snapshot
       const checkProvider = checkPiProviderStatus(effectiveConfig, processEnv).pipe(
         Effect.map(stampIdentity),
-        Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
       );
       const snapshot = yield* makeManagedServerProvider<PiSettings>({
         getSettings: Effect.succeed(effectiveConfig),
