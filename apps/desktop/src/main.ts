@@ -1465,14 +1465,17 @@ function startBackend(): void {
   }
 
   const captureBackendLogs = !isDevelopment;
-  const child = ChildProcess.spawn(process.execPath, [backendEntry, "--bootstrap-fd", "3"], {
+  // Use Bun if available to avoid node-pty native module issues on Linux
+  const bunPath = process.env.BUN_INSTALL ? `${process.env.BUN_INSTALL}/bin/bun` : "/home/nicolas/.bun/bin/bun";
+  const useBun = process.platform === "linux" && FS.existsSync(bunPath);
+  const spawnCmd = useBun ? bunPath : process.execPath;
+  const spawnArgs = useBun ? [backendEntry, "--bootstrap-fd", "3"] : [backendEntry, "--bootstrap-fd", "3"];
+  const spawnEnv = useBun
+    ? { ...backendChildEnv() }
+    : { ...backendChildEnv(), ELECTRON_RUN_AS_NODE: "1" };
+  const child = ChildProcess.spawn(spawnCmd, spawnArgs, {
     cwd: resolveBackendCwd(),
-    // In Electron main, process.execPath points to the Electron binary.
-    // Run the child in Node mode so this backend process does not become a GUI app instance.
-    env: {
-      ...backendChildEnv(),
-      ELECTRON_RUN_AS_NODE: "1",
-    },
+    env: spawnEnv,
     stdio: captureBackendLogs
       ? ["ignore", "pipe", "pipe", "pipe"]
       : ["ignore", "inherit", "inherit", "pipe"],

@@ -92,8 +92,28 @@ const PtyAdapterLive = Layer.unwrap(
       const BunPTY = yield* Effect.promise(() => import("./terminal/Layers/BunPTY.ts"));
       return BunPTY.layer;
     } else {
-      const NodePTY = yield* Effect.promise(() => import("./terminal/Layers/NodePTY.ts"));
-      return NodePTY.layer;
+      try {
+        const NodePTY = yield* Effect.promise(() => import("./terminal/Layers/NodePTY.ts"));
+        return NodePTY.layer;
+      } catch (_e) {
+        // node-pty native module not available — provide a no-op layer
+        // Terminal feature will be unavailable but the app still works
+        console.warn("node-pty not available, terminal feature disabled");
+        const mod = yield* Effect.promise(() => import("./terminal/Services/PTY.ts"));
+        const effectMod = yield* Effect.promise(() => import("effect"));
+        return effectMod.Layer.succeed(
+          mod.PtyAdapter,
+          {
+            spawn: () =>
+              effectMod.Effect.fail(
+                new mod.PtySpawnError({
+                  adapter: "node-pty",
+                  message: "Terminal feature unavailable: node-pty native module not found",
+                }),
+              ),
+          },
+        );
+      }
     }
   }),
 );
