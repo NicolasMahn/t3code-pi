@@ -508,19 +508,17 @@ export const makePiAdapter = Effect.fn("makePiAdapter")(function* (options: PiAd
         // Set model if configured
         const model = options.model;
         if (model) {
-          yield* client
-            .sendCommand({ type: "set_model", model })
-            .pipe(
-              Effect.mapError(
-                (e) =>
-                  new ProviderAdapterRequestError({
-                    provider: PROVIDER,
-                    method: "set_model",
-                    detail: e.message,
-                    cause: e,
-                  }),
-              ),
-            );
+          yield* client.sendCommand({ type: "set_model", model }).pipe(
+            Effect.mapError(
+              (e) =>
+                new ProviderAdapterRequestError({
+                  provider: PROVIDER,
+                  method: "set_model",
+                  detail: e.message,
+                  cause: e,
+                }),
+            ),
+          );
         }
 
         sessions.set(threadId, {

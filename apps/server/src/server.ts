@@ -101,18 +101,15 @@ const PtyAdapterLive = Layer.unwrap(
         console.warn("node-pty not available, terminal feature disabled");
         const mod = yield* Effect.promise(() => import("./terminal/Services/PTY.ts"));
         const effectMod = yield* Effect.promise(() => import("effect"));
-        return effectMod.Layer.succeed(
-          mod.PtyAdapter,
-          {
-            spawn: () =>
-              effectMod.Effect.fail(
-                new mod.PtySpawnError({
-                  adapter: "node-pty",
-                  message: "Terminal feature unavailable: node-pty native module not found",
-                }),
-              ),
-          },
-        );
+        return effectMod.Layer.succeed(mod.PtyAdapter, {
+          spawn: () =>
+            effectMod.Effect.fail(
+              new mod.PtySpawnError({
+                adapter: "node-pty",
+                message: "Terminal feature unavailable: node-pty native module not found",
+              }),
+            ),
+        });
       }
     }
   }),

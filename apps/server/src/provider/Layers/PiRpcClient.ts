@@ -162,13 +162,7 @@ export const makePiRpcClient = Effect.fn("makePiRpcClient")(function* (options: 
 
   const close = Effect.gen(function* () {
     // Kill the child process
-    yield* Effect.sync(() => {
-      try {
-        child.kill("SIGTERM" as any);
-      } catch {
-        // ignore
-      }
-    });
+    yield* Effect.ignore(child.kill());
     yield* Fiber.interrupt(stdoutParserFiber).pipe(Effect.ignore);
     yield* Fiber.interrupt(stderrParserFiber).pipe(Effect.ignore);
     yield* Fiber.interrupt(writeFiber).pipe(Effect.ignore);
