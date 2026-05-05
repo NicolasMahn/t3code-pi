@@ -433,6 +433,29 @@ interface PiAdapterSessionContext {
   readonly client: PiRpcClientShape;
   readonly eventFiber: ReturnType<ReturnType<typeof Effect.forkChild>["pipe"]>;
   stopped: boolean;
+  currentModel: string | undefined;
+}
+
+// Parse a model slug like "anthropic/claude-sonnet-4" or just "claude-sonnet-4"
+// into the shape Pi expects for `set_model`.
+function parsePiModel(modelSlug: string): { provider?: string; modelId: string } {
+  const slashIndex = modelSlug.indexOf("/");
+  if (slashIndex > 0) {
+    return {
+      provider: modelSlug.slice(0, slashIndex),
+      modelId: modelSlug.slice(slashIndex + 1),
+    };
+  }
+  return { modelId: modelSlug };
+}
+
+function buildSetModelCommand(modelSlug: string): {
+  type: string;
+  provider?: string;
+  modelId: string;
+} {
+  const parsed = parsePiModel(modelSlug);
+  return { type: "set_model", ...parsed };
 }
 
 // ── Adapter factory ───────────────────────────────────────────────────
@@ -505,10 +528,10 @@ export const makePiAdapter = Effect.fn("makePiAdapter")(function* (options: PiAd
           }),
         ).pipe(Effect.forkChild);
 
-        // Set model if configured
-        const model = options.model;
-        if (model) {
-          yield* client.sendCommand({ type: "set_model", model }).pipe(
+        // Set model from selection or driver config
+        const selectedModel = input.modelSelection?.model ?? options.model;
+        if (selectedModel) {
+          yield* client.sendCommand(buildSetModelCommand(selectedModel)).pipe(
             Effect.mapError(
               (e) =>
                 new ProviderAdapterRequestError({
@@ -526,6 +549,7 @@ export const makePiAdapter = Effect.fn("makePiAdapter")(function* (options: PiAd
           client,
           eventFiber,
           stopped: false,
+          currentModel: selectedModel,
         });
 
         const now = makeIsoNow();
@@ -551,6 +575,23 @@ export const makePiAdapter = Effect.fn("makePiAdapter")(function* (options: PiAd
           method: "prompt",
           detail: "No input text provided.",
         });
+      }
+
+      // Switch model if selection has changed since last turn
+      const targetModel = input.modelSelection?.model;
+      if (targetModel && targetModel !== session.currentModel) {
+        yield* session.client.sendCommand(buildSetModelCommand(targetModel)).pipe(
+          Effect.mapError(
+            (e) =>
+              new ProviderAdapterRequestError({
+                provider: PROVIDER,
+                method: "set_model",
+                detail: e.message,
+                cause: e,
+              }),
+          ),
+        );
+        session.currentModel = targetModel;
       }
 
       yield* session.client.sendCommand({ type: "prompt", message: text }).pipe(

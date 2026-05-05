@@ -10,6 +10,7 @@ import {
   PiSettings,
   ProviderDriverKind,
   type ServerProvider,
+  type ServerProviderModel,
   TextGenerationError,
 } from "@t3tools/contracts";
 import { Duration, Effect, FileSystem, Path, Schema, Stream } from "effect";
@@ -73,9 +74,45 @@ function checkPiProviderStatus(
   settings: PiSettings,
   _processEnv: NodeJS.ProcessEnv | undefined,
 ): Effect.Effect<ServerProviderDraft, never> {
-  // For now, assume Pi is always available if enabled.
-  // A proper probe could run `pi --version` or check if the binary exists.
   const now = new Date().toISOString() as any;
+  const models: ServerProviderModel[] = [
+    {
+      slug: "sonnet",
+      name: "Claude Sonnet",
+      subProvider: "anthropic",
+      isCustom: false,
+      capabilities: null,
+    },
+    {
+      slug: "haiku",
+      name: "Claude Haiku",
+      subProvider: "anthropic",
+      isCustom: false,
+      capabilities: null,
+    },
+    {
+      slug: "opus",
+      name: "Claude Opus",
+      subProvider: "anthropic",
+      isCustom: false,
+      capabilities: null,
+    },
+    {
+      slug: "gpt-4o",
+      name: "GPT-4o",
+      subProvider: "openai",
+      isCustom: false,
+      capabilities: null,
+    },
+    {
+      slug: "o3-mini",
+      name: "o3-mini",
+      subProvider: "openai",
+      isCustom: false,
+      capabilities: null,
+    },
+  ];
+
   return Effect.succeed({
     displayName: "Pi",
     enabled: settings.enabled,
@@ -84,14 +121,7 @@ function checkPiProviderStatus(
     status: settings.enabled ? ("ready" as const) : ("disabled" as const),
     auth: { status: "unknown" as const },
     checkedAt: now,
-    models: [
-      {
-        slug: "default",
-        name: "Default (Pi manages models)",
-        isCustom: false,
-        capabilities: null,
-      },
-    ],
+    models,
     slashCommands: [],
     skills: [],
   });

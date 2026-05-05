@@ -92,31 +92,6 @@ export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
     setIsMenuOpen(false);
   };
 
-  // Pi-only fork: hide the model picker entirely since Pi manages models
-  if (activeEntry?.driverKind === "pi") {
-    return (
-      <span
-        className={cn(
-          "inline-flex items-center gap-1.5 px-2 py-1 text-xs text-muted-foreground/60",
-          props.triggerClassName,
-        )}
-        title="Pi manages models"
-      >
-        {activeEntry && (
-          <ProviderInstanceIcon
-            driverKind={activeEntry.driverKind}
-            displayName={activeEntry.displayName}
-            accentColor={activeEntry.accentColor}
-            showBadge={false}
-            className="size-4"
-            iconClassName={cn("size-4", props.activeProviderIconClassName)}
-          />
-        )}
-        <span className="truncate">Pi</span>
-      </span>
-    );
-  }
-
   return (
     <Popover
       open={isMenuOpen}
