@@ -65,21 +65,21 @@ function makePendingPiProvider(settings: PiSettings): ServerProviderDraft {
 
 const FALLBACK_PI_MODELS: ServerProviderModel[] = [
   {
-    slug: "anthropic/claude-sonnet-4",
+    slug: "anthropic/claude-sonnet-4-20250514",
     name: "Claude Sonnet 4",
     subProvider: "anthropic",
     isCustom: false,
     capabilities: null,
   },
   {
-    slug: "anthropic/claude-haiku-4",
+    slug: "anthropic/claude-haiku-4-20250514",
     name: "Claude Haiku 4",
     subProvider: "anthropic",
     isCustom: false,
     capabilities: null,
   },
   {
-    slug: "anthropic/claude-opus-4",
+    slug: "anthropic/claude-opus-4-20250514",
     name: "Claude Opus 4",
     subProvider: "anthropic",
     isCustom: false,
@@ -111,35 +111,51 @@ const probePiModels = (binaryPath: string, environment?: NodeJS.ProcessEnv) =>
       ...(environment ? { environment } : {}),
     });
 
-    // Give Pi a moment to initialise before querying
-    yield* Effect.sleep(Duration.millis(600));
+    // Pi needs time to boot (load config, extensions, etc.)
+    yield* Effect.sleep(Duration.millis(1_500));
 
     const responseExit = yield* Effect.exit(
       client
         .sendCommand({ type: "get_available_models" })
-        .pipe(Effect.timeout(Duration.seconds(5))),
+        .pipe(Effect.timeout(Duration.seconds(6))),
     );
 
     yield* client.close.pipe(Effect.ignore);
 
-    if (responseExit._tag !== "Success") return [];
+    if (responseExit._tag !== "Success") {
+      console.error("[PiDriver] get_available_models failed:", responseExit.cause);
+      return [];
+    }
     const response = responseExit.value;
-    if (!response.success || !response.data) return [];
+    console.error("[PiDriver] get_available_models response:", JSON.stringify(response));
+    if (!response.success || !response.data) {
+      console.error("[PiDriver] get_available_models returned success=false or no data");
+      return [];
+    }
 
-    const data = response.data as
-      | {
-          models?: Array<{
-            id: string;
-            name: string;
-            provider?: string;
-          }>;
-        }
-      | undefined;
-    if (!data?.models) return [];
+    const data = response.data as {
+      models?: Array<{
+        id: string;
+        name: string;
+        provider?: string;
+      }>;
+    };
+    if (!data.models || data.models.length === 0) {
+      console.error("[PiDriver] get_available_models returned empty model list");
+      return [];
+    }
+
+    console.error(
+      "[PiDriver] Discovered",
+      data.models.length,
+      "models from Pi:",
+      data.models.map((m) => `${m.provider}/${m.id}`).join(", "),
+    );
 
     return data.models.map(
       (m): ServerProviderModel => ({
-        slug: m.id,
+        // Pi set_model needs provider AND modelId — encode both in slug
+        slug: m.provider ? `${m.provider}/${m.id}` : m.id,
         name: m.name,
         ...(m.provider ? { subProvider: m.provider } : {}),
         isCustom: false,
@@ -160,10 +176,11 @@ function checkPiProviderStatus(
           const exit = yield* Effect.exit(
             probePiModels(settings.binaryPath, processEnv).pipe(
               Effect.scoped,
-              Effect.timeout(Duration.seconds(8)),
+              Effect.timeout(Duration.seconds(10)),
             ),
           );
           if (exit._tag === "Success") return exit.value;
+          console.error("[PiDriver] probePiModels outer timeout:", exit.cause);
           return [];
         })
       : [];
